@@ -56,6 +56,10 @@ int main() {
     result = oscilloscope_stream_data(&config, &sampling_config, 1000, &sampling_result);
     handle_errors(result, true, &config);
 
+    printf("received %zd samples\nsamples: [\n", sampling_result.n_samples);
+    for(size_t i = 0; i < sampling_result.n_samples; i++) printf(" %f", sampling_result.samples[i]);
+    printf("]\n");
+
     oscilloscope_teardown(&config);
     return 0;
 }

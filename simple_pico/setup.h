@@ -33,6 +33,7 @@ typedef struct {
  */
 typedef struct {
     int16_t scope;                                      // the oscilloscope identifier
+    int16_t  max_adc;                                   // the max adc value for the scope
     int8_t* serial_number;                              // if not-null, tries to open a specific scope
     oscilloscope_channel_context_t* sampling_channels;  // list of active channels for sampling
     size_t sampling_channel_count;                      // number of sampling channels

@@ -13,7 +13,9 @@ PICO_STATUS oscilloscope_setup_all(oscilloscope_context_t* config) {
     if(result != PICO_OK) return result;
     result = oscilloscope_setup_channels(config);
     if(result != PICO_OK) return result;
-    return oscilloscope_setup_trigger(config);
+    result = oscilloscope_setup_trigger(config);
+    if(result != PICO_OK) return result;
+    return ps3000aMaximumValue(config->scope, &config->max_adc);
 }
 
 /**

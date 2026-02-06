@@ -1,5 +1,9 @@
 #include "data.h"
 
+#include "arraylist.h"
+
+#include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
 
 
@@ -25,8 +29,33 @@ static inline void convert_fs_to_ps(double sampling_frequency, uint32_t* period,
     }
 }
 
+float ADC_FLOAT_VALUES[] = {
+    0.01, 0.02, 0.05, 
+    0.1, 0.2, 0.5,
+    1.0, 2.0, 5.0,
+    10.0, 20.0, 50.0,
+};
+
+#define ADC_TO_FLOAT(s, ma, cr, off, att) ((s/ma*cr+off)*att)
+
+float* convert_adc_to_float(int16_t* samples, size_t n_samples, int16_t max_adc, oscilloscope_channel_context_t channel) {
+    float* result = (float*)malloc(sizeof(float)*n_samples);
+    if(!result) {
+        fprintf(stderr, "failed to allocate final float buffer\n");
+        exit(1);
+    }
+    float range = ADC_FLOAT_VALUES[channel.range];
+    for(size_t i = 0; i < n_samples; i++) {
+        result[i] = ADC_TO_FLOAT(samples[i], max_adc, range, channel.analog_offset, channel.attenuation);
+    }
+    return result;
+}
+
 typedef struct {
     int16_t* buffer;
+    size_t buffer_size;
+    arraylist_t result_sample_buffer;
+    arraylist_t result_trigger_index_buffer;
     oscilloscope_sampling_result_t* sample_result;
 } callback_context_t;
 
@@ -34,9 +63,15 @@ typedef struct {
  * the oscilloscope callback function used to mask the callback function of the oscilloscope api
  */
 void oscilloscope_callback_wrapper(int16_t handle, int32_t noSamples, uint32_t startIndex, int16_t overflow, uint32_t triggerAt, int16_t triggered, int16_t autostop, void* parameter) {
-    // buffer is a ring buffer, we need to handle that
-    // noSamples may end up circling back to zero
-
+    callback_context_t* context = (callback_context_t*)parameter;
+    uint32_t current_index = startIndex;
+    for(size_t i = 0; i < noSamples; i++) {
+        arraylist_append(context->result_sample_buffer, (void*)context->buffer[current_index++]);
+        // buffer is a ring buffer, we need to handle that
+        // noSamples may end up circling back to zero
+        if(current_index >= context->buffer_size) current_index = 0;
+    }
+    if(triggered) arraylist_append(context->result_trigger_index_buffer, (void*)triggerAt);
 }
 
 /**
@@ -45,11 +80,11 @@ void oscilloscope_callback_wrapper(int16_t handle, int32_t noSamples, uint32_t s
  * Runs for duration ms and places the data in the result buffer
  * The function will allocate the buffer and arrays in the struct, do not allocate them yourself
  */
-PICO_STATUS stream_data(oscilloscope_context_t* scope_config, oscilloscope_sampling_context_t* config, uint64_t duration, oscilloscope_sampling_result_t* result) {
+PICO_STATUS oscilloscope_stream_data(oscilloscope_context_t* scope_config, oscilloscope_sampling_context_t* config, uint64_t duration, oscilloscope_sampling_result_t* result) {
     PICO_STATUS result_status;
     int16_t* buffer = (int16_t*)malloc(sizeof(int16_t) * config->buffer_size);
     if(!buffer) return PICO_MEMORY;
-    result_status = ps3000aSetDataBuffer(scope_config->scope, config->channel, buffer, config->buffer_size, 0, PS3000A_RATIO_MODE_NONE);
+    result_status = ps3000aSetDataBuffer(scope_config->scope, config->channel->channel, buffer, config->buffer_size, 0, PS3000A_RATIO_MODE_NONE);
     if(result_status != PICO_OK) return result_status;
     uint32_t sample_period;
     PS3000A_TIME_UNITS period_units;
@@ -65,6 +100,9 @@ PICO_STATUS stream_data(oscilloscope_context_t* scope_config, oscilloscope_sampl
     // we need arraylists here...
     callback_context_t callback_ctx = {
         buffer,
+        config->buffer_size,
+        arraylist_create(config->buffer_size, sizeof(int16_t)),
+        arraylist_create(config->buffer_size, sizeof(uint32_t)),
         result
     };
     clock_t clocks_per_ms = CLOCKS_PER_SEC * 1e-3;
@@ -76,4 +114,19 @@ PICO_STATUS stream_data(oscilloscope_context_t* scope_config, oscilloscope_sampl
     }
 
     // convert ints to voltages
+    result->samples = convert_adc_to_float(
+        callback_ctx.result_sample_buffer.arr, 
+        callback_ctx.result_sample_buffer.size, 
+        scope_config->max_adc,
+        *(config->channel)
+    );
+    result->n_samples = callback_ctx.result_sample_buffer.size;
+    result->n_triggers = callback_ctx.result_trigger_index_buffer.size;
+    result->triggers = callback_ctx.result_trigger_index_buffer.arr;
+    result->status = PICO_OK;
+
+    arraylist_destroy(callback_ctx.result_sample_buffer);
+    free(buffer);
+
+    return PICO_OK;
 }

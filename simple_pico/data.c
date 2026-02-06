@@ -66,7 +66,7 @@ void oscilloscope_callback_wrapper(int16_t handle, int32_t noSamples, uint32_t s
     callback_context_t* context = (callback_context_t*)parameter;
     uint32_t current_index = startIndex;
     for(size_t i = 0; i < noSamples; i++) {
-        arraylist_append(context->result_sample_buffer, (void*)context->buffer[current_index++]);
+        arraylist_append(context->result_sample_buffer, (void*)(context->buffer + current_index++));
         // buffer is a ring buffer, we need to handle that
         // noSamples may end up circling back to zero
         if(current_index >= context->buffer_size) current_index = 0;

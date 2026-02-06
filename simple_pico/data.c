@@ -105,7 +105,6 @@ PICO_STATUS oscilloscope_stream_data(oscilloscope_context_t* scope_config, oscil
         arraylist_create(config->buffer_size, sizeof(uint32_t)),
         result
     };
-    clock_t clocks_per_ms = CLOCKS_PER_SEC * 1e-3;
     clock_t start = clock();
 
     while(((clock() - start) / CLOCKS_PER_MS) < duration) {

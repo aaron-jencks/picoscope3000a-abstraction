@@ -22,7 +22,7 @@ PICO_STATUS oscilloscope_setup_all(oscilloscope_context_t* config) {
  * tears down the given oscilloscope
  */
 PICO_STATUS oscilloscope_teardown(oscilloscope_context_t* config) {
-    ps3000aCloseUnit(config->scope);
+    return ps3000aCloseUnit(config->scope);
 }
 
 PICO_STATUS disable_channel(int16_t scope, PS3000A_CHANNEL channel) {

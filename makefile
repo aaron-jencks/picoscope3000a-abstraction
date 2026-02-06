@@ -7,7 +7,7 @@ PICO_SDK_INC := /opt/picoscope/include
 PICO_SDK_LIB := /opt/picoscope/lib
 
 CPPFLAGS := -I./simple_pico -I$(PICO_SDK_INC)
-CFLAGS   := -O2 -g -Wall -Wextra -Wpedantic -std=c11
+CFLAGS   := -g -Wall -Wextra -Wpedantic -std=c11
 
 LDFLAGS  := -L$(PICO_SDK_LIB)
 LDLIBS   := -lps3000a -lpthread -lm
@@ -33,6 +33,12 @@ $(LIB_A): $(LIB_HDRS) $(LIB_SRCS)
 $(DEMO_BIN): $(DEMO_SRC) $(LIB_A)
 	$(CC) $(CPPFLAGS) $(CFLAGS) \
 	  $(DEMO_SRC) $(LIB_A) \
+	  $(LDFLAGS) $(LDLIBS) \
+	  -o $@
+
+arraylist_demo: arraylist_demo.c $(LIB_A)
+	$(CC) $(CPPFLAGS) $(CFLAGS) \
+	  arraylist_demo.c $(LIB_A) \
 	  $(LDFLAGS) $(LDLIBS) \
 	  -o $@
 

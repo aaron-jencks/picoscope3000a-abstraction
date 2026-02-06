@@ -47,7 +47,7 @@ int main() {
     oscilloscope_sampling_context_t sampling_config = {
         &sampling_channels[0],
         20000000,           // 20MHz
-        1024 * 1024 * 1024, // 1MB
+        1024 * 1024, // 1MB
         false, 0, 0         // no triggers
     };
 

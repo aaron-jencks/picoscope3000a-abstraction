@@ -21,7 +21,7 @@ RANLIB  ?= ranlib
 
 # ---- flags ----
 CPPFLAGS := $(addprefix -I,$(INCLUDE_DIRS)) $(CPPFLAGS_EXTRA)
-CFLAGS   := -O2 -g -Wall -Wextra -Wpedantic $(CFLAGS_EXTRA)
+CFLAGS   := -g -Wall -Wextra -Wpedantic $(CFLAGS_EXTRA)
 LDFLAGS  := $(LDFLAGS_EXTRA)
 LDLIBS   := $(LDLIBS_EXTRA)
 

@@ -26,22 +26,30 @@ arraylist_t arraylist_create(size_t initial_capacity, size_t mem_size) {
 /**
  * de-allocates an arraylist
  */
-void arraylist_destroy(arraylist_t arr) {
-    free(arr.arr);
+void arraylist_destroy(arraylist_t* arr) {
+    if(!arr) return;
+    free(arr->arr);
+    arr->arr = NULL;
+    arr->size = 0;
+    arr->capacity = 0;
 }
 
 /**
  * Adds a new element to the end of the arraylist
  */
-size_t arraylist_append(arraylist_t arr, void* value) {
-    if(arr.size == arr.capacity) {
-        arr.capacity <<= 1;
-        arr.arr = realloc(arr.arr, arr.capacity * arr.mem_size);
-        if(!arr.arr) {
+size_t arraylist_append(arraylist_t* arr, const void* value) {
+    if(!arr || !value) {
+        fprintf(stderr, "invalid arraylist append arguments\n");
+        exit(1);
+    }
+    if(arr->size == arr->capacity) {
+        arr->capacity <<= 1;
+        arr->arr = realloc(arr->arr, arr->capacity * arr->mem_size);
+        if(!arr->arr) {
             fprintf(stderr, "failed to re-allocate arraylist\n");
             exit(1);
         }
     }
-    memcpy((char*)arr.arr + arr.size * arr.mem_size, value, arr.mem_size);
-    return arr.size++;
+    memcpy((char*)arr->arr + arr->size * arr->mem_size, value, arr->mem_size);
+    return arr->size++;
 }

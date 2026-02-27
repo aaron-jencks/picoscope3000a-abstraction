@@ -17,11 +17,11 @@ arraylist_t arraylist_create(size_t initial_capacity, size_t mem_size);
 /**
  * de-allocates an arraylist
  */
-void arraylist_destroy(arraylist_t arr);
+void arraylist_destroy(arraylist_t* arr);
 
 /**
  * Adds a new element to the end of the arraylist
  */
-size_t arraylist_append(arraylist_t arr, void* value);
+size_t arraylist_append(arraylist_t* arr, const void* value);
 
 #endif

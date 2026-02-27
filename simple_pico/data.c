@@ -2,6 +2,7 @@
 
 #include "arraylist.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -36,7 +37,7 @@ float ADC_FLOAT_VALUES[] = {
     10.0, 20.0, 50.0,
 };
 
-#define ADC_TO_FLOAT(s, ma, cr, off, att) ((s/ma*cr+off)*att)
+#define ADC_TO_FLOAT(s, ma, cr, off, att) ((((float)(s) / (float)(ma)) * (cr) + (off)) * (att))
 
 float* convert_adc_to_float(int16_t* samples, size_t n_samples, int16_t max_adc, oscilloscope_channel_context_t channel) {
     float* result = (float*)malloc(sizeof(float)*n_samples);
@@ -63,15 +64,20 @@ typedef struct {
  * the oscilloscope callback function used to mask the callback function of the oscilloscope api
  */
 void oscilloscope_callback_wrapper(int16_t handle, int32_t noSamples, uint32_t startIndex, int16_t overflow, uint32_t triggerAt, int16_t triggered, int16_t autostop, void* parameter) {
+    (void)handle;
+    (void)overflow;
+    (void)autostop;
     callback_context_t* context = (callback_context_t*)parameter;
-    uint32_t current_index = startIndex;
+    if(noSamples <= 0 || context->buffer_size == 0) return;
+
+    uint32_t current_index = startIndex % context->buffer_size;
     for(size_t i = 0; i < noSamples; i++) {
-        arraylist_append(context->result_sample_buffer, (void*)(context->buffer + current_index++));
+        arraylist_append(&context->result_sample_buffer, &context->buffer[current_index++]);
         // buffer is a ring buffer, we need to handle that
         // noSamples may end up circling back to zero
         if(current_index >= context->buffer_size) current_index = 0;
     }
-    if(triggered) arraylist_append(context->result_trigger_index_buffer, (void*)triggerAt);
+    if(triggered) arraylist_append(&context->result_trigger_index_buffer, &triggerAt);
 }
 
 /**
@@ -81,11 +87,13 @@ void oscilloscope_callback_wrapper(int16_t handle, int32_t noSamples, uint32_t s
  * The function will allocate the buffer and arrays in the struct, do not allocate them yourself
  */
 PICO_STATUS oscilloscope_stream_data(oscilloscope_context_t* scope_config, oscilloscope_sampling_context_t* config, uint64_t duration, oscilloscope_sampling_result_t* result) {
-    PICO_STATUS result_status;
+    PICO_STATUS result_status = PICO_OK;
+    PICO_STATUS stop_status = PICO_OK;
+    bool streaming_started = false;
     int16_t* buffer = (int16_t*)malloc(sizeof(int16_t) * config->buffer_size);
     if(!buffer) return PICO_MEMORY;
     result_status = ps3000aSetDataBuffer(scope_config->scope, config->channel->channel, buffer, config->buffer_size, 0, PS3000A_RATIO_MODE_NONE);
-    if(result_status != PICO_OK) return result_status;
+    if(result_status != PICO_OK) goto cleanup;
     uint32_t sample_period;
     PS3000A_TIME_UNITS period_units;
     convert_fs_to_ps(config->sample_rate, &sample_period, &period_units);
@@ -95,7 +103,8 @@ PICO_STATUS oscilloscope_stream_data(oscilloscope_context_t* scope_config, oscil
         post_trigger = config->post_trigger_samples;
     }
     result_status = ps3000aRunStreaming(scope_config->scope, &sample_period, period_units, pre_trigger, post_trigger, false, 1, PS3000A_RATIO_MODE_NONE, config->buffer_size);
-    if(result_status != PICO_OK) return result_status;
+    if(result_status != PICO_OK) goto cleanup;
+    streaming_started = true;
 
     // we need arraylists here...
     callback_context_t callback_ctx = {
@@ -107,14 +116,20 @@ PICO_STATUS oscilloscope_stream_data(oscilloscope_context_t* scope_config, oscil
     };
     clock_t start = clock();
 
-    while(((clock() - start) / CLOCKS_PER_MS) < duration) {
+    while((((double)(clock() - start)) / CLOCKS_PER_MS) < (double)duration) {
         result_status = ps3000aGetStreamingLatestValues(scope_config->scope, oscilloscope_callback_wrapper, (void*)&callback_ctx);
-        if(result_status != PICO_OK) return result_status;
+        if(result_status != PICO_OK) goto cleanup_with_lists;
+    }
+    stop_status = ps3000aStop(scope_config->scope);
+    streaming_started = false;
+    if(stop_status != PICO_OK) {
+        result_status = stop_status;
+        goto cleanup_with_lists;
     }
 
     // convert ints to voltages
     result->samples = convert_adc_to_float(
-        callback_ctx.result_sample_buffer.arr, 
+        callback_ctx.result_sample_buffer.arr,
         callback_ctx.result_sample_buffer.size, 
         scope_config->max_adc,
         *(config->channel)
@@ -122,10 +137,23 @@ PICO_STATUS oscilloscope_stream_data(oscilloscope_context_t* scope_config, oscil
     result->n_samples = callback_ctx.result_sample_buffer.size;
     result->n_triggers = callback_ctx.result_trigger_index_buffer.size;
     result->triggers = callback_ctx.result_trigger_index_buffer.arr;
+    result->actual_sample_rate = 1.0 / ((double)sample_period * pow(10.0, (double)period_units * 3.0 - 15.0));
     result->status = PICO_OK;
+    result_status = PICO_OK;
 
-    arraylist_destroy(callback_ctx.result_sample_buffer);
+cleanup_with_lists:
+    if(streaming_started) {
+        stop_status = ps3000aStop(scope_config->scope);
+        if(result_status == PICO_OK && stop_status != PICO_OK) {
+            result_status = stop_status;
+        }
+    }
+    arraylist_destroy(&callback_ctx.result_sample_buffer);
+    if(result_status != PICO_OK) {
+        arraylist_destroy(&callback_ctx.result_trigger_index_buffer);
+    }
+
+cleanup:
     free(buffer);
-
-    return PICO_OK;
+    return result_status;
 }

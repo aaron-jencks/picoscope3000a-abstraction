@@ -15,6 +15,8 @@ PICO_STATUS oscilloscope_setup_all(oscilloscope_context_t* config) {
     if(result != PICO_OK) return result;
     result = oscilloscope_setup_trigger(config);
     if(result != PICO_OK) return result;
+    result = oscilloscope_setup_signal_generator(config);
+    if(result != PICO_OK) return result;
     return ps3000aMaximumValue(config->scope, &config->max_adc);
 }
 
@@ -128,5 +130,31 @@ PICO_STATUS oscilloscope_setup_trigger(oscilloscope_context_t* config) {
         config->scope, true,
         trigger_config->channel.channel, adc_threshold,
         trigger_config->mode, trigger_config->delay, trigger_config->autotrigger_delay
+    );
+}
+
+/**
+ * sets up the built-in signal generator after opening the unit.
+ */
+PICO_STATUS oscilloscope_setup_signal_generator(oscilloscope_context_t* config) {
+    if(config->signal_generator_context == NULL) return PICO_OK;
+
+    oscilloscope_signal_generator_context_t* siggen = config->signal_generator_context;
+    return ps3000aSetSigGenBuiltInV2(
+        config->scope,
+        siggen->offset_voltage_uv,
+        siggen->peak_to_peak_uv,
+        siggen->wave_type,
+        siggen->start_frequency_hz,
+        siggen->stop_frequency_hz,
+        siggen->frequency_increment_hz,
+        siggen->dwell_time_s,
+        siggen->sweep_type,
+        siggen->operation,
+        siggen->shots,
+        siggen->sweeps,
+        siggen->trigger_type,
+        siggen->trigger_source,
+        siggen->ext_in_threshold_mv
     );
 }

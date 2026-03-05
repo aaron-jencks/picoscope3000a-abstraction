@@ -38,4 +38,16 @@ typedef struct {
  */
 PICO_STATUS oscilloscope_stream_data(oscilloscope_context_t* scope_config, oscilloscope_sampling_context_t* config, uint64_t duration, oscilloscope_sampling_result_t* result);
 
+/**
+ * Collects a single block capture.
+ * Uses config->buffer_size as the total samples per capture unless trigger pre/post are set.
+ */
+PICO_STATUS oscilloscope_collect_block(oscilloscope_context_t* scope_config, oscilloscope_sampling_context_t* config, oscilloscope_sampling_result_t* result);
+
+/**
+ * Collects rapid block captures and flattens data capture-major in result->samples.
+ * Uses config->buffer_size as the total samples per capture unless trigger pre/post are set.
+ */
+PICO_STATUS oscilloscope_collect_rapid_block(oscilloscope_context_t* scope_config, oscilloscope_sampling_context_t* config, uint32_t captures, oscilloscope_sampling_result_t* result);
+
 #endif

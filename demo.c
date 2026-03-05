@@ -39,7 +39,8 @@ int main() {
         0, 0, NULL,
         sampling_channels,
         1,
-        &trigger_config
+        &trigger_config,
+        NULL
     };
     result = oscilloscope_setup_all(&config);
     handle_errors(result, false, &config);
@@ -60,6 +61,32 @@ int main() {
     size_t preview_count = sampling_result.n_samples < 32 ? sampling_result.n_samples : 32;
     for(size_t i = 0; i < preview_count; i++) printf(" %f", sampling_result.samples[i]);
     printf("\n]\n");
+    free(sampling_result.samples);
+    free(sampling_result.triggers);
+
+    result = oscilloscope_collect_block(&config, &sampling_config, &sampling_result);
+    handle_errors(result, true, &config);
+
+    printf("block mode sample rate %f\nreceived %zd samples\nsamples (first 32): [\n", sampling_result.actual_sample_rate, sampling_result.n_samples);
+    preview_count = sampling_result.n_samples < 32 ? sampling_result.n_samples : 32;
+    for(size_t i = 0; i < preview_count; i++) printf(" %f", sampling_result.samples[i]);
+    printf("\n]\n");
+    free(sampling_result.samples);
+    free(sampling_result.triggers);
+
+    result = oscilloscope_collect_rapid_block(&config, &sampling_config, 4, &sampling_result);
+    handle_errors(result, true, &config);
+
+    printf("rapid block mode sample rate %f\nreceived %zd samples (%zu per capture)\nsamples (first 32): [\n",
+        sampling_result.actual_sample_rate,
+        sampling_result.n_samples,
+        sampling_result.n_samples / 4
+    );
+    preview_count = sampling_result.n_samples < 32 ? sampling_result.n_samples : 32;
+    for(size_t i = 0; i < preview_count; i++) printf(" %f", sampling_result.samples[i]);
+    printf("\n]\n");
+    free(sampling_result.samples);
+    free(sampling_result.triggers);
 
     oscilloscope_teardown(&config);
     return 0;

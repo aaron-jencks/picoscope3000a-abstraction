@@ -29,6 +29,27 @@ typedef struct {
 } oscilloscope_trigger_context_t;
 
 /**
+ * Represents built-in function generator configuration.
+ * voltage fields are in microvolts (driver units).
+ */
+typedef struct {
+    int32_t offset_voltage_uv;                        // DC offset in uV
+    uint32_t peak_to_peak_uv;                         // amplitude in uVpp
+    PS3000A_WAVE_TYPE wave_type;                      // waveform type
+    double start_frequency_hz;                        // sweep start frequency in Hz
+    double stop_frequency_hz;                         // sweep stop frequency in Hz
+    double frequency_increment_hz;                    // sweep increment in Hz
+    double dwell_time_s;                              // sweep dwell time in seconds
+    PS3000A_SWEEP_TYPE sweep_type;                    // up / down / up-down
+    PS3000A_EXTRA_OPERATIONS operation;               // off / white noise / etc
+    uint32_t shots;                                   // cycles in triggered mode
+    uint32_t sweeps;                                  // sweep count in triggered mode
+    PS3000A_SIGGEN_TRIG_TYPE trigger_type;            // sig-gen trigger edge/gating
+    PS3000A_SIGGEN_TRIG_SOURCE trigger_source;        // scope/aux/ext/software trigger source
+    int16_t ext_in_threshold_mv;                      // ext trigger threshold in mV
+} oscilloscope_signal_generator_context_t;
+
+/**
  * Represents the context for the oscilloscope to define things like channels and triggering information
  */
 typedef struct {
@@ -38,6 +59,7 @@ typedef struct {
     oscilloscope_channel_context_t* sampling_channels;  // list of active channels for sampling
     size_t sampling_channel_count;                      // number of sampling channels
     oscilloscope_trigger_context_t* trigger_context;    // the trigger config, if NULL then no trigger is used
+    oscilloscope_signal_generator_context_t* signal_generator_context; // if NULL, signal generator setup is skipped
 } oscilloscope_context_t;
 
 
@@ -62,5 +84,10 @@ PICO_STATUS oscilloscope_setup_channels(oscilloscope_context_t* config);
  * sets up the trigger for the oscilloscope after the unit has been opened and the channel have been setup.
  */
 PICO_STATUS oscilloscope_setup_trigger(oscilloscope_context_t* config);
+
+/**
+ * sets up the built-in signal generator after opening the unit.
+ */
+PICO_STATUS oscilloscope_setup_signal_generator(oscilloscope_context_t* config);
 
 #endif
